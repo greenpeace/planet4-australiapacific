@@ -9,6 +9,17 @@ parameters:
   run_develop:
     default: true
     type: boolean
+  run_create_test_user:
+    default: false
+    type: boolean
+
+  run_delete_test_user:
+    default: false
+    type: boolean
+
+  unhold:
+    default: ""
+    type: string
 
 docker_auth: &docker_auth
   username: $DOCKERHUB_USERNAME
@@ -28,7 +39,7 @@ job_environments:
   common_environment: &common_environment
     APP_HOSTPATH: australiapacific
     CONTAINER_PREFIX: planet4-australiapacific
-    WP_DB_NAME_PREFIX: planet4-australi_wordpress
+    WP_DB_NAME_PREFIX: planet4-australiapacific_wordpress
   develop_environment: &develop_environment
     APP_ENVIRONMENT: development
     APP_HOSTNAME: www-dev.greenpeace.org
@@ -37,30 +48,8 @@ job_environments:
     GCLOUD_CLUSTER: p4-development
     HELM_NAMESPACE: australiapacific-development
     HELM_RELEASE: planet4-australiapacific
-    WP_DB_NAME: planet4-australi_wordpress_develop
+    WP_DB_NAME: planet4-australiapacific_wordpress_develop
     WP_STATELESS_BUCKET: planet4-australiapacific-stateless-develop
-  release_build_env: &release_build_env
-    GOOGLE_PROJECT_ID: planet4-production
-  release_environment: &release_environment
-    APP_ENVIRONMENT: staging
-    APP_HOSTNAME: www-stage.greenpeace.org
-    CLOUDSQL_INSTANCE: planet4-prod
-    GCLOUD_CLUSTER: planet4-production
-    GOOGLE_PROJECT_ID: planet4-production
-    HELM_NAMESPACE: australiapacific-staging
-    HELM_RELEASE: planet4-australiapacific-release
-    WP_DB_NAME: planet4-australi_wordpress_release
-    WP_STATELESS_BUCKET: planet4-australiapacific-stateless-release
-  production_environment: &production_environment
-    APP_HOSTNAME: www-prod.greenpeace.org
-    CLOUDSQL_INSTANCE: planet4-prod
-    GCLOUD_CLUSTER: planet4-production
-    GOOGLE_PROJECT_ID: planet4-production
-    HELM_NAMESPACE: australiapacific
-    HELM_RELEASE: planet4-australiapacific-master
-    MIN_REPLICA_COUNT: 2
-    WP_DB_NAME: planet4-australi_wordpress_master
-    WP_STATELESS_BUCKET: planet4-australiapacific-stateless
 
 commands:
   approve_job:
@@ -141,6 +130,7 @@ job_definitions:
       - run: make prepare-helm
       - run: make backup
       - run: BUILD_TAG=build-$(cat /tmp/workspace/var/circle-build-num) make deploy-helm
+      - run: make reset
       - run: make post-deploy
       - run:
           name: Extract workflow from commit message
@@ -167,35 +157,6 @@ job_definitions:
             - slack/status:
                 channel: C015MQGG3KQ
                 webhook: ${SLACK_NRO_WEBHOOK}
-  finish_staging_steps: &finish_staging_steps
-    working_directory: ~/
-    steps:
-      - attach_workspace:
-          at: /tmp/workspace
-      - run: activate-gcloud-account.sh
-      - run:
-          name: Get hold-production status
-          command: |
-            url="https://circleci.com/api/v2/workflow/$CIRCLE_WORKFLOW_ID/job"
-            workflow=$(curl -s -u "${CIRCLE_TOKEN}": -X GET --header "Content-Type: application/json" "$url")
-            echo "$workflow" | jq -r '.items[] | select(.name=="hold-production") | .status ' >/tmp/workspace/prod_status
-      - run:
-          name: Rollback if production wasn't approved
-          command: |
-            if [ $(cat /tmp/workspace/prod_status) == 'success' ]; then
-              echo "No need to rollback, production deploy was initiated so staging should stay at this version."
-              exit 0;
-            fi
-            make rollback
-  rollback_steps: &rollback_steps
-    working_directory: ~/
-    steps:
-      - run: activate-gcloud-account.sh
-      - run: mkdir -p /tmp/workspace/var /tmp/workspace/src
-      - run: make checkout
-      - run: make copy
-      - run: make persist
-      - run: BUILD_TAG="${CIRCLE_TAG}" make deploy
 
 jobs:
   build-develop:
@@ -211,201 +172,55 @@ jobs:
       <<: *common_environment
       <<: *develop_environment
     <<: *deploy_steps
-
-  visualtests-reference:
-    environment:
-      <<: *common_environment
-      <<: *release_environment
+  create-test-user:
+    working_directory: ~/
     docker:
-      - image: greenpeaceinternational/planet4-backstop:latest
+      - image: greenpeaceinternational/p4-builder:latest
         auth:
           <<: *docker_auth
-    working_directory: /src
+    environment:
+      <<: *common_environment
+      <<: *develop_environment
+      WORKFLOW_ID: << pipeline.parameters.unhold >>
     steps:
-      - run: ./checkout.sh
-      - run: ./mergescenarios.sh
-      - run: mkdir /app/ -p
-      - run: ./makehistory.sh
-      - store_artifacts:
-          path: /app/backstop_data
-      - persist_to_workspace:
-          root: /app
-          paths:
-            - backstop_data
-
-  visualtests-compare:
-    environment:
-      <<: *common_environment
-      <<: *release_environment
-    docker:
-      - image: greenpeaceinternational/planet4-backstop:latest
-        auth:
-          <<: *docker_auth
-    working_directory: /src
-    parameters:
-      notify:
-        type: boolean
-        default: false
-    steps:
-      - run: ./checkout.sh
-      - run: ./mergescenarios.sh
-      - run: mkdir /app/ -p
-      - attach_workspace:
-          at: /app
-      - run: ./makecomparison.sh
-      - store_test_results:
-          path: /app/backstop_data
-      - store_artifacts:
-          path: /app/backstop_data
-      - slack/status:
-          fail_only: true
-          channel: C015MQGG3KQ
-          webhook: ${SLACK_NRO_WEBHOOK}
-
-  build:
-    <<: *defaults
-    environment:
-      <<: *common_environment
-      <<: *release_build_env
-    <<: *build_steps
-
-  deploy-staging:
-    <<: *defaults
-    environment:
-      <<: *common_environment
-      <<: *release_environment
-    <<: *deploy_steps
-
-  finish-staging:
-    <<: *defaults
-    environment:
-      <<: *common_environment
-      <<: *release_environment
-    <<: *finish_staging_steps
-
-  rollback-staging:
-    <<: *defaults
-    environment:
-      <<: *common_environment
-      <<: *release_environment
-    <<: *rollback_steps
-  promote:
-    <<: *defaults
-    environment:
-      <<: *common_environment
-    working_directory: /tmp/workspace/src
-    steps:
-      - checkout
-      - run:
-          name: Approve promotion
-          command: promote-to-production.sh "${CIRCLE_WORKFLOW_ID}"
-
-  deploy-production:
-    <<: *defaults
-    environment:
-      <<: *common_environment
-      <<: *production_environment
-    <<: *deploy_steps
-
-  rollback-production:
-    <<: *defaults
-    environment:
-      <<: *common_environment
-      <<: *production_environment
-    <<: *rollback_steps
-
-  create-sync-sql:
-    <<: *defaults
-    environment:
-      <<: *common_environment
-      <<: *production_environment
-    working_directory: /tmp/workspace/src
-    steps:
-      - checkout
+      - checkout:
+          path: /home/circleci/checkout
       - attach_workspace:
           at: /tmp/workspace
+      - run: activate-gcloud-account.sh
+      - run: make prepare-helm
       - run:
-          name: Configure
+          name: Create test user
+          command: /home/circleci/bin/test_account_add.sh
+      - run:
+          name: Unhold e2e test job
           command: |
-            activate-gcloud-account.sh
-      - run: echo $SQLPROXY_KEY | base64 -d > key.json
-      - run: sql_create_sync_file.sh
+            if [[ -n $WORKFLOW_ID ]]; then
+              echo "$WORKFLOW_ID"
+              echo $WORKFLOW_ID > /tmp/workspace/approve_workflow
+            fi
+      - approve_job:
+          job_name: test-user-ready
 
-  sync-to-staging:
-    <<: *defaults
-    environment:
-      <<: *common_environment
-      <<: *release_environment
-    working_directory: /tmp/workspace/src
-    steps:
-      - checkout
-      - attach_workspace:
-          at: /tmp/workspace
-      - run:
-          name: Configure
-          command: activate-gcloud-account.sh
-      - run:
-          name: Get keys
-          command: echo $SQLPROXY_KEY | base64 -d > key.json
-      - run:
-          name: Sync staging site
-          command: sql_to_sync_site.sh release
-
-  sync-to-develop:
-    <<: *defaults
-    environment:
-      <<: *common_environment
-      <<: *develop_environment
-    working_directory: /tmp/workspace/src
-    steps:
-      - checkout
-      - attach_workspace:
-          at: /tmp/workspace
-      - run:
-          name: Configure
-          command: activate-gcloud-account.sh
-      - run:
-          name: Check sync flag
-          command: check-data-sync-flag.sh
-      - run:
-          name: Get keys
-          command: echo $SQLPROXY_KEY | base64 -d > key.json
-      - run:
-          name: Sync dev site
-          command: sql_to_sync_site.sh develop
-
-  notify-sync:
-    <<: *defaults
-    environment:
-      <<: *common_environment
-      <<: *develop_environment
-    working_directory: /tmp/workspace/src
-    steps:
-      - checkout
-      - run:
-          name: Configure
-          command: activate-gcloud-account.sh
-      - run:
-          name: Check sync flag
-          command: check-data-sync-flag.sh
-      - run:
-          name: Notify admins
-          command: notify-sync-admins.sh
-
-  backup:
+  delete-test-user:
+    working_directory: ~/
     docker:
-      - image: greenpeaceinternational/planet4-backup:latest
+      - image: greenpeaceinternational/p4-builder:latest
         auth:
           <<: *docker_auth
     environment:
       <<: *common_environment
-      <<: *production_environment
-    working_directory: /app
+      <<: *develop_environment
     steps:
-      - run: echo "backup is running"
-      - run: pwd
-      - run: ls
-      - run: ./go.sh
+      - checkout:
+          path: /home/circleci/checkout
+      - attach_workspace:
+          at: /tmp/workspace
+      - run: activate-gcloud-account.sh
+      - run: make prepare-helm
+      - run:
+          name: Delete test user
+          command: /home/circleci/bin/test_account_remove.sh
 
 workflow_definitions:
   on_develop_commit: &on_develop_commit
@@ -413,13 +228,6 @@ workflow_definitions:
     filters:
       branches:
         only: main
-  on_release_tag: &on_release_tag
-    context: org-global
-    filters:
-      branches:
-        ignore: /.*/
-      tags:
-        only: /^v.*/
 
 workflows:
   develop:
@@ -431,98 +239,14 @@ workflows:
           <<: *on_develop_commit
           requires:
             - build-develop
-  production:
-    unless: << pipeline.parameters.rollback >>
+  create-test-user:
+    when: << pipeline.parameters.run_create_test_user >>
     jobs:
-      - visualtests-reference:
-          <<: *on_release_tag
-      - build:
-          <<: *on_release_tag
-      - deploy-staging:
-          <<: *on_release_tag
-          requires:
-            - build
-            - visualtests-reference
-      - visualtests-compare:
-          <<: *on_release_tag
-          notify: true
-          requires:
-            - deploy-staging
-      - rollback-staging:
-          <<: *on_release_tag
-          type: approval
-          requires:
-            - deploy-staging
-      - finish-staging:
-          <<: *on_release_tag
-          requires:
-            - rollback-staging
-      - hold-production:
-          <<: *on_release_tag
-          type: approval
-          requires:
-            - deploy-staging
-      - deploy-production:
-          <<: *on_release_tag
-          notify: true
-          is_prod: true
-          requires:
-            - hold-production
-  rollback:
-    when: << pipeline.parameters.rollback >>
-    jobs:
-      - rollback-staging:
-          <<: *on_release_tag
-      - hold-production:
-          <<: *on_release_tag
-          type: approval
-          requires:
-            - rollback-staging
-      - rollback-production:
-          <<: *on_release_tag
-          requires:
-            - hold-production
-
-  sync-from-production:
-    triggers:
-      - schedule:
-          cron: "10 01 1 * *"
-          filters:
-            branches:
-              only:
-                - main
-    jobs:
-      - create-sync-sql:
-          context: org-global
-      - sync-to-staging:
-          context: org-global
-          requires:
-            - create-sync-sql
-      - sync-to-develop:
-          context: org-global
-          requires:
-            - create-sync-sql
-
-  notify-sync:
-    triggers:
-      - schedule:
-          cron: "10 02 28 * *"
-          filters:
-            branches:
-              only:
-                - main
-    jobs:
-      - notify-sync:
+      - create-test-user:
           context: org-global
 
-  backup:
-    triggers:
-      - schedule:
-          cron: "30 02 * * *"
-          filters:
-            branches:
-              only:
-                - main
+  delete-test-user:
+    when: << pipeline.parameters.run_delete_test_user >>
     jobs:
-      - backup:
+      - delete-test-user:
           context: org-global
