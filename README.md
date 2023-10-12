@@ -1,4 +1,4 @@
-# Greenpeace Planet 4 australiapacific
+# Greenpeace Planet 4 Australia Pacific
 
 ![Planet4](./planet4.png)
 
