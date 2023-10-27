@@ -3,6 +3,7 @@
   "description": "Greenpeace Planet 4",
   "license": "MIT",
   "require": {
-    "greenpeace/planet4-child-theme-australiapacific" : "dev-main"
+    "greenpeace/planet4-child-theme-australiapacific" : "dev-main",
+    "wpackagist-plugin/advanced-custom-fields": "5.6.2"
   }
 }
