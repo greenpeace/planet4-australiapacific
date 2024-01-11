@@ -5,5 +5,11 @@
   "require": {
     "greenpeace/planet4-child-theme-australiapacific" : "dev-main",
     "wpackagist-plugin/advanced-custom-fields": "5.6.2"
-  }
+  },
+  "scripts": {
+		"install:plugin-wpimport": "wp plugin install --activate https://storage.googleapis.com/planet4-3rdparty-plugins/wp-all-import-pro_4.6.3.zip",
+		"site:custom": [
+			"@install:plugin-wpimport"
+		]
+	}
 }
