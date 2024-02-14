@@ -37,6 +37,7 @@ job_environments:
     HELM_RELEASE: planet4-australiapacific
     WP_DB_NAME: planet4-australi_wordpress_develop
     WP_STATELESS_BUCKET: planet4-australiapacific-stateless-develop
+    PHP_MEMORY_LIMIT: 2Gi
   release_build_env: &release_build_env
     GOOGLE_PROJECT_ID: planet4-production
   release_environment: &release_environment
