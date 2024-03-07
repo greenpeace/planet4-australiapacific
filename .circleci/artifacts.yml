@@ -1,11 +1,11 @@
 job_environments:
   common_environment: &common_environment
-    APP_HOSTPATH: australiapacific
     CONTAINER_PREFIX: planet4-australiapacific
     WP_DB_NAME_PREFIX: planet4-australi_wordpress
   develop_environment: &develop_environment
     APP_ENVIRONMENT: development
     APP_HOSTNAME: www-dev.greenpeace.org
+    APP_HOSTPATH: australiapacific
     CLOUDSQL_INSTANCE: p4-develop-k8s
     GOOGLE_PROJECT_ID: planet-4-151612
     GCLOUD_CLUSTER: p4-development
@@ -18,6 +18,7 @@ job_environments:
   release_environment: &release_environment
     APP_ENVIRONMENT: staging
     APP_HOSTNAME: www-stage.greenpeace.org
+    APP_HOSTPATH: australiapacific
     CLOUDSQL_INSTANCE: planet4-prod
     GCLOUD_CLUSTER: planet4-production
     GOOGLE_PROJECT_ID: planet4-production
@@ -26,7 +27,8 @@ job_environments:
     WP_DB_NAME: planet4-australi_wordpress_release
     WP_STATELESS_BUCKET: planet4-australiapacific-stateless-release
   production_environment: &production_environment
-    APP_HOSTNAME: www-prod.greenpeace.org
+    APP_HOSTNAME: www.greenpeace.org.au
+    APP_HOSTPATH:
     CLOUDSQL_INSTANCE: planet4-prod
     GCLOUD_CLUSTER: planet4-production
     GOOGLE_PROJECT_ID: planet4-production
