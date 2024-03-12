@@ -28,7 +28,7 @@ job_environments:
     WP_DB_NAME_PREFIX: planet4-australi_wordpress
   develop_environment: &develop_environment
     APP_ENVIRONMENT: development
-    APP_HOSTNAME: www-dev.greenpeace.org
+    APP_HOSTNAME: p4-dev.greenpeace.org.au
     APP_HOSTPATH: australiapacific
     CLOUDSQL_INSTANCE: p4-develop-k8s
     GOOGLE_PROJECT_ID: planet-4-151612
