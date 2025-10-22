@@ -26,7 +26,7 @@ job_environments:
   common_environment: &common_environment
     CONTAINER_PREFIX: planet4-australiapacific
     WP_DB_NAME_PREFIX: planet4-australi_wordpress
-    BASE_RELEASE: v25.18.1
+    BASE_RELEASE: v25.19.0
   develop_environment: &develop_environment
     APP_ENVIRONMENT: development
     APP_HOSTNAME: www-dev.greenpeace.org.au
