@@ -2,18 +2,36 @@
   "name": "greenpeace/planet4-australiapacific",
   "description": "Greenpeace Planet 4",
   "license": "MIT",
+  "repositories": [
+    {
+      "type": "package",
+      "package": {
+        "name": "eaybes/seo-internal-linker",
+        "version": "1.1.0",
+        "type": "wordpress-plugin",
+        "dist": {
+          "type": "zip",
+          "url": "https://github.com/eaybes/seo-internal-linker/archive/314351e29727f116142075b1e47f30b016403e1e.zip",
+          "reference": "314351e29727f116142075b1e47f30b016403e1e"
+        }
+      }
+    }
+  ],
   "require": {
     "greenpeace/planet4-child-theme-australiapacific": "dev-main",
     "wpackagist-plugin/advanced-custom-fields": "5.6.2",
     "wpackagist-plugin/safe-svg": "2.2.2",
-    "wpackagist-plugin/google-sitemap-generator":"4.1.19"
+    "wpackagist-plugin/google-sitemap-generator":"4.1.19",
+    "eaybes/seo-internal-linker": "1.1.0"
   },
   "scripts": {
     "activate:safe-svg": "wp plugin activate safe-svg",
     "activate:google-sitemap-generator": "wp plugin activate google-sitemap-generator",
+    "activate:seo-internal-linker": "wp plugin activate seo-internal-linker",
     "site:custom": [
       "@activate:safe-svg",
-      "@activate:google-sitemap-generator"
+      "@activate:google-sitemap-generator",
+      "@activate:seo-internal-linker"
     ]
   }
 }
